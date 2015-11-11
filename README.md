@@ -2,7 +2,7 @@
 
 Running at: https://kekkonen.herokuapp.com/
 
-Kekkonen: http://www.kekkonen.io
+Kekkonen: http://kekkonen.io
 
 ## Usage
 
