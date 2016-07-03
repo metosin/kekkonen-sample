@@ -22,4 +22,4 @@ java -server -jar target/example.jar
 
 ## License
 
-Copyright © 2015 Metosin
+Copyright © 2015-2016 Metosin.

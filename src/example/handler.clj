@@ -41,15 +41,18 @@
 
 (defnk create [state]
   (cqrs-api
-    {:swagger {:info {:title "Example API"
-                      :description (str "This is a sample CQRS API with Kekkonen. You can find the source from "
-                                        "[Github](https://github.com/metosin/kekkonen-sample).\n\n"
-                                        "Try `kekkonen` as the api-key for more apis.")}
-               :externalDocs {:description "Find more about Kekkonen"
-                              :url "http://kekkonen.io"}}
-     :ring {:transformers [security/api-key-authenticator]}
+   {:swagger {:ui "/"
+              :spec "/swagger.json"
+              :data {:info {:title "Example API"
+                            :description
+                            (str "This is a sample CQRS API with Kekkonen. You can find the source from "
+                                 "[Github](https://github.com/metosin/kekkonen-sample).\n\n"
+                                 "Try `kekkonen` as the api-key for more apis.")}
+                     :externalDocs {:description "Find more about Kekkonen"
+                                    :url "http://kekkonen.io"}}}
+     :ring {:interceptors [security/api-key-authenticator]}
      :core {:handlers {:api {:pizza #'echo-pizza
                              :common [#'ping #'inc! #'plus #'security/get-user]
                              :admin [#'reset-counter!]}}
-            :user {::roles security/require-roles}
+            :meta {::roles security/require-roles}
             :context state}}))
