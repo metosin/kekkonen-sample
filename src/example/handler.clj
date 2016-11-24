@@ -18,8 +18,8 @@
 (defnk ^:query ping
   []
   (println "ping!")
-  [[:effect/response {:ping "pong"}]
-   [:effect/response-message "pong"]])
+  [[:effect/response {:ping "pong"}]                        ; for REST
+   [:effect/response-message "pong"]])                      ; for WS
 
 (s/defschema User
   {:email s/Str})
@@ -38,12 +38,14 @@
 ;;
 
 (defnk ^:effect db
+  "Handle DB efects"
   [data :as ctx]
   (println "effect: updating db:" data)
   (assoc ctx :after-db {:tx 112233
                         :new-user-id 123456}))
 
 (defnk ^:effect email
+  "Handle e-mail effects"
   [data :- s/Keyword
    [:after-db new-user-id :- Long]
    :as ctx]
@@ -51,11 +53,13 @@
   ctx)
 
 (defnk ^:effect response
+  "Handle sending HTTP response"
   [data :as ctx]
   (println "effect: response" data)
   (assoc ctx :response {:status 200 :body data}))
 
 (defnk ^:effect response-message
+  "Handle sending WS response message to caller"
   [data [:sente id send-fn] :as ctx]
   (println "effect: response-message" data send-fn)
   (send-fn [id data])
@@ -81,19 +85,17 @@
             (println "effect-interceptor: error" error)
             (assoc ctx :kekkonen.interceptor/queue error))})
 
-;;
-;; ========================================================================
-;; Application
-;; ========================================================================
-;;
-
 (defn make-effects-dispatcher [handlers]
   (k/dispatcher {:type-resolver (k/type-resolver :effect)
                  :handlers (select-keys handlers [:effect])}))
 
-(defn concatv [& v]
+; Without this, we get:
+;   No implementation of method: :-collect of protocol: #'kekkonen.core/Collector found for class: clojure.lang.LazySe
+(defn- concatv [& v]
   (vec (apply concat v)))
 
+; We need some simple way to apply dispatcher specific (effect) handlers, here's
+; my quick solution.
 (defn make-kekkonen-config [state common-handlers & context-effect-handlers]
   (let [handlers (update common-handlers :effect concatv context-effect-handlers)]
     (println "=>" handlers)
@@ -106,12 +108,18 @@
 
 ;;
 ;; ========================================================================
-;; Ring handler:
+;; Application
 ;; ========================================================================
 ;;
 
 (def handlers {:effect [#'db #'email]
                :api [#'register-user #'ping]})
+
+;;
+;; ========================================================================
+;; Ring handler:
+;; ========================================================================
+;;
 
 (defnk create-ring-handler [state]
   (ka/api
@@ -139,13 +147,46 @@
     (fn [{action :id :as sente-event}]
       (k/invoke dispatcher action (sente-event->ctx sente-event)))))
 
+;;
+;; Testing handlers:
+;;
+
+;; Test ring handler:
+
+(comment
+
+  (let [ring-handler (create-ring-handler {:state {}})]
+    (ring-handler {:request-method :get :uri "/api/ping"})) \
+  ; Prints
+  ;   ping!
+  ;   effect: response {:ping pong}
+
+  (let [ring-handler (create-ring-handler {:state {}})]
+    (ring-handler {:request-method :post :uri "/api/register-user" :body-params {:email "fofo"}}))
+  ; Prints
+  ;   register-user! {:email fofo}
+  ;   effect: updating db: [[:db/add -1 :user/email fofo]]
+  ;   effect: sending email: template: :registeration-email user-id: 123456
+  ;   effect: response {:code :ok}
+  )
+
+;; Test Sente handler:
+
 (comment
   (let [sente-handler (create-sente-handler {})]
     (sente-handler {:id :api/ping
                     :event [nil nil]
                     :send-fn (fn [data] (println "sente: send response" data))}))
+  ; Prints
+  ;   ping!
+  ;   effect: response-message pong #object[example.handler$eval27363$fn__27364 0x5d493e03 example.handler$eval27363$fn__27364@5d493e03]
+  ;   sente: send response [:api/ping pong]
 
   (let [sente-handler (create-sente-handler {})]
     (sente-handler {:id :api/register-user
-                    :event [nil {:email "baba"}]
-                    :send-fn (fn [data] (println "sente: send response" data))})))
+                    :event [nil {:email "baba@example.com"}]}))
+  ; Prints:
+  ;   register-user! {:email baba@example.com}
+  ;   effect: updating db: [[:db/add -1 :user/email baba@example.com]]
+  ;   effect: sending email: template: :registeration-email user-id: 123456
+  )
