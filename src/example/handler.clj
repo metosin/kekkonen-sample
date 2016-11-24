@@ -98,7 +98,6 @@
 ; my quick solution.
 (defn make-kekkonen-config [state common-handlers & context-effect-handlers]
   (let [handlers (update common-handlers :effect concatv context-effect-handlers)]
-    (println "=>" handlers)
     {:handlers (dissoc handlers :effect)
      :type-resolver (k/type-resolver :command :query)
      :meta {::roles security/require-roles}
