@@ -75,46 +75,67 @@
             (assoc ctx :kekkonen.interceptor/queue error))})
 
 
-(defn make-sente-handler [dispatcher]
-  (fn [{action :id :as sente-event}]
-    (do (println "handling event:" action)
-        (->> {:request sente-event}
-             (k/dispatch dispatcher :invoke action)))))
-
-(comment
-  (let [dispatcher (k/dispatcher {:type-resolver (k/type-resolver :command :query :effect)
-                                  :handlers {:effect [#'db #'email #'response]
-                                             :api [#'register-user #'ping]}
-                                  :interceptors [security/api-key-authenticator
-                                                 effect-interceptor]})
-        sente-handler (make-sente-handler dispatcher)]
-    (sente-handler {:id :api/ping})))
-
-
-(defn api [options]
-  (ka/api
-    (kc/deep-merge-map-like
-      {:core {:type-resolver (k/type-resolver :command :query :effect)}
-       :ring {:types {:query {:methods #{:get}
-                              :parameters {[:data] [:request :query-params]}}
-                      :command {:methods #{:post}
-                                :parameters {[:data] [:request :body-params]}}}}}
-      options)))
-
 ;;
 ;; ========================================================================
 ;; Application
 ;; ========================================================================
 ;;
 
-(defnk create [state]
-  (api
-    {:swagger {:ui "/"
-               :spec "/swagger.json"
-               :data {:info {:title "Example API"}}}
-     :core {:handlers {:effect [#'db #'email #'response]
-                       :api [#'register-user #'ping]}
-            :meta {::roles security/require-roles}
-            :context state
-            :interceptors [security/api-key-authenticator
-                           effect-interceptor]}}))
+(defn make-kekkonen-config [state]
+  {:handlers {:effect [#'db #'email #'response]
+              :api [#'register-user #'ping]}
+   :meta {::roles security/require-roles}
+   :context state
+   :interceptors [security/api-key-authenticator
+                  effect-interceptor]})
+
+;;
+;; ========================================================================
+;; Ring handler:
+;; ========================================================================
+;;
+
+(defnk create-ring-handler [state]
+  (ka/api
+    (kc/deep-merge-map-like
+      {:core (make-kekkonen-config state)}
+      {:swagger {:ui "/"
+                 :spec "/swagger.json"
+                 :data {:info {:title "Example API"}}}
+       :core {:type-resolver (k/type-resolver :command :query :effect)}
+       :ring {:types {:query {:methods #{:get}
+                              :parameters {[:data] [:request :query-params]}}
+                      :command {:methods #{:post}
+                                :parameters {[:data] [:request :body-params]}}}}})))
+
+;;
+;; ========================================================================
+;; Sente handler:
+;; ========================================================================
+;;
+
+(defn sente-event->request [sente-event]
+  ; TODO
+  {:request sente-event})
+
+(defn create-sente-handler [state]
+  (let [dispatcher (k/dispatcher (-> (make-kekkonen-config state)
+                                     (assoc :type-resolver (k/type-resolver :command :query :effect))))]
+    (fn [{action :id :as sente-event}]
+      (do (println "handling event:" action)
+          (->> (sente-event->request sente-event)
+               (k/dispatch dispatcher :invoke action))))))
+
+(comment
+  (let [sente-handler (create-sente-handler {})]
+    (sente-handler {:id :api/ping})))
+
+
+(comment
+  (let [sente-handler (create-sente-handler {})]
+    (sente-handler {:id :api/register-user
+                    :body {:email "baba"}})))
+
+
+
+

@@ -13,6 +13,6 @@
                {:fn
                 (if (:dev-mode? config)
                   ; re-create handler on every request
-                  (fn [system] #((handler/create system) %))
-                  handler/create)})
+                  (fn [system] #((handler/create-ring-handler system) %))
+                  handler/create-ring-handler)})
              [:state])}))
