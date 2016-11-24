@@ -32,8 +32,7 @@
                       (:response ctx))
               ctx))
    :error (fn [ctx error]
-            (print error)
-            ctx)})
+            (assoc ctx :kekkonen.interceptor/queue error))})
 
 ;;
 ;; effect handlers
@@ -47,12 +46,11 @@
   ctx)
 
 (defnk ^:effect email
-  [[:data to :- [s/Str] type :- s/Keyword]
-   db
-   :as ctx]
-  (let [message (case type
-                  :registeration-email (let [{:keys [email id]} (last (:users @db))]
-                                         (format "Welcome, %s, id: %s" email id)))]
+  [data :- s/Keyword, db :as ctx]
+  (let [{:keys [to message]} (case data
+                               :registeration-email (let [{:keys [email id]} (last (:users @db))]
+                                                      {:to [email]
+                                                       :message (format "Welcome, %s, id: %s" email id)}))]
     (println "Sending email -> " to ": " message))
   ctx)
 
@@ -73,10 +71,7 @@
 (defnk ^:command register-user
   [data :- User]
   [[:effect/db (fn [db] (update db :users conj (assoc data :id (rand-int 10000))))]
-   ; [:effect/email {:to [(:email data)]
-   ;                 :message (format "Welcome, %s, id: %s" (:email data) "FIXME")}]
-   [:effect/email {:type :registeration-email
-                   :to [(:email data)]}]
+   [:effect/email :registeration-email]
    [:effect/response {:status 200 :body {:code :ok}}]])
 
 ;;
