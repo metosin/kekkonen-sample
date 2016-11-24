@@ -9,4 +9,5 @@
                  [metosin/kekkonen "0.3.2"]]
   :profiles {:uberjar {:aot [example.main]
                        :main example.main
-                       :uberjar-name "example.jar"}})
+                       :uberjar-name "example.jar"}}
+  :repl-options {:init-ns user})
