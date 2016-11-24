@@ -6,7 +6,8 @@
                  [com.stuartsierra/component "0.3.1"]
                  [reloaded.repl "0.2.2"]
                  [metosin/palikka "0.5.1"]
-                 [metosin/kekkonen "0.3.2"]]
+                 [metosin/kekkonen "0.3.2"]
+                 [metosin/potpuri "0.3.0"]]
   :profiles {:uberjar {:aot [example.main]
                        :main example.main
                        :uberjar-name "example.jar"}}
