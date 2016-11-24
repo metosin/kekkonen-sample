@@ -81,13 +81,14 @@
         (->> {:request sente-event}
              (k/dispatch dispatcher :invoke action)))))
 
-(let [dispatcher (k/dispatcher {:type-resolver (k/type-resolver :command :query :effect)
-                                :handlers {:effect [#'db #'email #'response]
-                                           :api [#'register-user #'ping]}
-                                :interceptors [security/api-key-authenticator
-                                               effect-interceptor]})
-      sente-handler (make-sente-handler dispatcher)]
-  (sente-handler {:id :api/ping}))
+(comment
+  (let [dispatcher (k/dispatcher {:type-resolver (k/type-resolver :command :query :effect)
+                                  :handlers {:effect [#'db #'email #'response]
+                                             :api [#'register-user #'ping]}
+                                  :interceptors [security/api-key-authenticator
+                                                 effect-interceptor]})
+        sente-handler (make-sente-handler dispatcher)]
+    (sente-handler {:id :api/ping})))
 
 
 (defn api [options]
